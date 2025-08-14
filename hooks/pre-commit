@@ -37,8 +37,8 @@ else
   echo "⏭️  No staged Python files — skipping isort/black."
 fi
 
-# Lint (whole repo or change to just staged files if you prefer)
-if command -v "$FLAKE8" >/dev/null 2>&1; then
+# Lint staged files
+if command -v "$FLAKE8 ${STAGED_PY_FILES}" >/dev/null 2>&1; then
   echo "🐍 Running flake8..."
   $FLAKE8 .
 else
