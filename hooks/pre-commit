@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# - Blocks "TODO" in staged changes
+# - Auto-fixes imports (isort) and formatting (black) for STAGED .py files only
+# - Re-stages formatted files
+# - Lints with flake8
+set -euo pipefail
+IFS=$'\n\t'
+
+echo "🔎 Running pre-commit checks..."
+
+# List staged Python files (Added, Copied, Modified)
+STAGED_PY_FILES="$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)"
+
+# Block TODOs in staged diff
+if git diff --cached | grep -qi "TODO"; then
+  echo "❌ Commit blocked: staged changes contain 'TODO'"
+  exit 1
+fi
+
+# Prefer venv tools if present
+ISORT="isort"; BLACK="black"; FLAKE8="flake8"
+[[ -x ".venv/bin/isort"  ]] && ISORT=".venv/bin/isort"
+[[ -x ".venv/bin/black"  ]] && BLACK=".venv/bin/black"
+[[ -x ".venv/bin/flake8" ]] && FLAKE8=".venv/bin/flake8"
+
+# Only run formatters if there are staged Python files
+if [[ -n "${STAGED_PY_FILES}" ]]; then
+  echo "📦 isort (auto-fix imports)..."
+  $ISORT --profile black ${STAGED_PY_FILES} >/dev/null || true
+
+  echo "🖤 black (auto-fix formatting)..."
+  $BLACK --quiet ${STAGED_PY_FILES} || true
+
+  echo "🧺 re-staging formatted files..."
+  git add ${STAGED_PY_FILES}
+else
+  echo "⏭️  No staged Python files — skipping isort/black."
+fi
+
+# Lint (whole repo or change to just staged files if you prefer)
+if command -v "$FLAKE8" >/dev/null 2>&1; then
+  echo "🐍 Running flake8..."
+  $FLAKE8 .
+else
+  echo "ℹ️ flake8 not found; skipping Python lint step."
+fi
+
+echo "✅ Pre-commit checks passed."
+exit 0
