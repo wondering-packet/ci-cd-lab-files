@@ -40,11 +40,10 @@ skip-string-normalization = true           # Preserve original string quotes
 profile = "black"                          # Match Black’s import style
 line_length = 88                           # Same line length as Black
 
-[tool.pytest.ini_options]
 # pytest configuration
-addopts = """
---cov=src                              # Measure coverage for 'src' directory
---cov-report=term-missing              # Show missing lines in terminal
---cov-report=xml                       # Generate XML report (for CI uploads)
---cov-fail-under=80                     # Fail if coverage < 80%
-"""
+# --cov=src               measure coverage for src/
+# --cov-report=term-missing shows missing lines inline
+# --cov-report=xml        produce coverage.xml (for CI upload)
+# --cov-fail-under=80     fail if coverage drops below 80%
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
