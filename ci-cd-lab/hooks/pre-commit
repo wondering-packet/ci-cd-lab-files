@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Pre-commit hook:
+# - Blocks "TODO" in staged changes
+# - Auto-fixes imports (isort) & formatting (black) for STAGED .py files only
+# - Re-stages formatted files
+# - Lints only STAGED .py files with flake8
+set -euo pipefail
+IFS=$'\n\t'
+
+echo "🔎 Running pre-commit checks..."
+
+# 1) Prefer running inside your local virtualenv if present
+if [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck source=/dev/null
+  source ".venv/bin/activate"
+fi
+
+# 2) Block TODOs in staged diff
+if git diff --cached | grep -qi "TODO"; then
+  echo "❌ Commit blocked: staged changes contain 'TODO'"
+  exit 1
+fi
+
+# 3) Collect staged Python files (Added, Copied, Modified), null-delimited for safety
+mapfile -d '' -t STAGED_PY_FILES < <(
+  git diff --cached --name-only -z --diff-filter=ACM | grep -z -E '\.py$' || true
+)
+
+if (( ${#STAGED_PY_FILES[@]} > 0 )); then
+  echo "📦 isort (auto-fix imports on staged .py files)..."
+  printf '%s\0' "${STAGED_PY_FILES[@]}" | xargs -0 -r isort --quiet --
+
+  echo "🖤 black (auto-fix formatting on staged .py files)..."
+  printf '%s\0' "${STAGED_PY_FILES[@]}" | xargs -0 -r black --quiet --
+
+  echo "🧺 Re-staging formatted files..."
+  git add -- "${STAGED_PY_FILES[@]}"
+
+  # 4) Lint ONLY the staged files
+  if command -v flake8 >/dev/null 2>&1; then
+    echo "🐍 Running flake8 on staged files..."
+    # Extra belt-and-suspenders: exclude .venv even if someone passes a dir later
+    printf '%s\0' "${STAGED_PY_FILES[@]}" | xargs -0 -r flake8 --exclude=.venv --
+  else
+    echo "ℹ️ flake8 not found; skipping Python lint step."
+  fi
+else
+  echo "⏭  No staged Python files — skipping isort/black/flake8."
+fi
+
+echo "✅ Pre-commit checks passed."
+exit 0
